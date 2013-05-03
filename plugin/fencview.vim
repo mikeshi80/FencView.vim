@@ -596,36 +596,45 @@ function! s:CheckModelineFileEncoding() "{{{1
     endif
 endfunction
 
+function! s:ConvertHtmlSpecifiedEncoding(charset) " {{{1
+    let charset=s:ConvertHtmlEncoding(a:charset)
+    normal ``
+    if &fileencodings==''
+      let auto_encodings=','.&encoding.','
+    else
+      let auto_encodings=','.&fileencodings.','
+    endif
+    if charset!=?&fileencoding &&
+       \(auto_encodings=~','.&fileencoding.',' || &fileencoding=='')
+        try
+            let s:disable_autodetection=1
+            let Syn=&syntax
+            silent! exec 'edit ++enc='.charset
+            if Syn!=''
+                let &syntax=Syn
+            endif
+        finally
+            let s:disable_autodetection=0
+        endtry
+    endif
+endfunction
 
 function! s:DetectHtmlEncoding() " {{{1
     normal m`
     normal gg
     if search('\c<meta http-equiv=\("\?\)Content-Type\1 content="text/html; charset=[-A-Za-z0-9_]\+">')!=0
         let charset=matchstr(getline('.'), 'text/html; charset=\zs[-A-Za-z0-9_]\+', col('.') - 1)
-        let charset=s:ConvertHtmlEncoding(charset)
-        normal ``
-        if &fileencodings==''
-          let auto_encodings=','.&encoding.','
-        else
-          let auto_encodings=','.&fileencodings.','
-        endif
-        if charset!=?&fileencoding &&
-           \(auto_encodings=~','.&fileencoding.',' || &fileencoding=='')
-            try
-                let s:disable_autodetection=1
-                let Syn=&syntax
-                silent! exec 'edit ++enc='.charset
-                if Syn!=''
-                    let &syntax=Syn
-                endif
-            finally
-                let s:disable_autodetection=0
-            endtry
-        endif
+        call s:ConvertHtmlSpecifiedEncoding(charset)
         return 1
-    else
-        return 0
     endif
+
+    if search('\c<meta\s\+charset=\("\?\)[-A-Za-z0-9_]\+\1>')!=0
+        let charset=matchstr(getline('.'), 'charset="\?\zs[-A-Za-z0-9_]\+', col('.') - 1)
+        call s:ConvertHtmlSpecifiedEncoding(charset)
+        return 1
+    endif
+
+    return 0
 endfunction
 
 
